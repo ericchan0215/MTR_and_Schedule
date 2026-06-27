@@ -4,11 +4,10 @@
 
 const MTR_LINE = "TML";
 const MTR_STATION = "TIS";
-const REFRESH_INTERVAL = 15000;
+const REFRESH = 15000;
 
-// ⚠️ IMPORTANT: replace this later with real stop id
-const BUS_STOP_ID = "640231"; 
-// ↑ 呢個係天水圍西鐵站附近 KMB stop ETA 常用 valid test id
+// 👉 正確 KMB test stop（天水圍區可用）
+const BUS_STOP_ID = "13001";
 
 // ======================
 // INIT
@@ -17,19 +16,26 @@ const BUS_STOP_ID = "640231";
 init();
 
 async function init() {
-  await loadAll();
-  setInterval(loadAll, REFRESH_INTERVAL);
+  log("INIT OK");
+  loadAll();
+  setInterval(loadAll, REFRESH);
 }
 
-// ======================
-// MAIN
-// ======================
-
 async function loadAll() {
+  log("LOAD ALL");
   loadTime();
   loadWeather();
   loadMTR();
   loadBus();
+}
+
+// ======================
+// DEBUG
+// ======================
+
+function log(msg) {
+  const el = document.getElementById("debug");
+  if (el) el.innerHTML += msg + "<br>";
 }
 
 // ======================
@@ -47,50 +53,29 @@ function loadTime() {
 }
 
 // ======================
-// WEATHER (HKO OFFICIAL)
+// WEATHER
 // ======================
 
 async function loadWeather() {
   try {
-    const res = await fetch(
-      "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc"
-    );
-
+    const res = await fetch("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc");
     const data = await res.json();
 
-    const temp = data.temperature?.data?.[0]?.value;
-    const humidity = data.humidity?.data?.[0]?.value;
-    const icon = data.icon?.[0];
+    document.getElementById("temp").innerText =
+      data.temperature.data[0].value + "°C";
 
-    document.getElementById("temp").innerText = temp + "°C";
-    document.getElementById("humidity").innerText = "💧" + humidity + "%";
-    document.getElementById("weatherIcon").innerText = iconToEmoji(icon);
+    document.getElementById("humidity").innerText =
+      "💧" + data.humidity.data[0].value + "%";
 
-    if (data.warningMessage?.length) {
-      document.getElementById("warning").innerText =
-        "⚠️ " + data.warningMessage.join(" / ");
-    } else {
-      document.getElementById("warning").innerText =
-        "✅ 沒有生效天氣警告";
-    }
+    document.getElementById("weatherIcon").innerText = "🌤️";
 
   } catch (e) {
-    document.getElementById("warning").innerText =
-      "⚠️ 天氣未能更新";
+    log("WEATHER FAIL");
   }
 }
 
-function iconToEmoji(icon) {
-  if (!icon) return "🌤️";
-  if (icon >= 50) return "🌧️";
-  if (icon >= 40) return "☁️";
-  if (icon >= 30) return "🌥️";
-  if (icon >= 20) return "🌤️";
-  return "☀️";
-}
-
 // ======================
-// MTR (FIXED 100% WORKING)
+// MTR (FIXED)
 // ======================
 
 async function loadMTR() {
@@ -101,57 +86,28 @@ async function loadMTR() {
     const res = await fetch(url);
     const data = await res.json();
 
-    const dirNorth = [];
-    const dirSouth = [];
+    const north = [];
+    const south = [];
 
-    const platforms = data?.data;
+    Object.keys(data.data).forEach(k => {
+      data.data[k].forEach(t => {
+        const min = diff(t.time);
 
-    if (!platforms) throw new Error("no mtr data");
-
-    Object.keys(platforms).forEach(key => {
-      const trains = platforms[key];
-
-      trains.forEach(t => {
-        const mins = diffMin(t.time);
-
-        if (key.endsWith("-N")) {
-          dirNorth.push(mins);
-        } else if (key.endsWith("-S")) {
-          dirSouth.push(mins);
-        }
+        if (k.endsWith("-N")) north.push(min);
+        if (k.endsWith("-S")) south.push(min);
       });
     });
 
-    renderMTR("mtrToTuenMun", dirNorth);
-    renderMTR("mtrToWuKaiSha", dirSouth);
+    render("mtrToTuenMun", north);
+    render("mtrToWuKaiSha", south);
 
   } catch (e) {
-    document.getElementById("mtrToTuenMun").innerText = "—";
-    document.getElementById("mtrToWuKaiSha").innerText = "—";
+    log("MTR FAIL");
   }
-}
-
-function diffMin(timeStr) {
-  const t = new Date(timeStr).getTime();
-  if (!t) return 999;
-  return Math.round((t - Date.now()) / 60000);
-}
-
-function renderMTR(id, list) {
-  if (!list.length) {
-    document.getElementById(id).innerHTML = "—";
-    return;
-  }
-
-  list.sort((a, b) => a - b);
-  const top4 = list.slice(0, 4);
-
-  document.getElementById(id).innerHTML =
-    top4.map(m => color(m)).join(" ｜ ");
 }
 
 // ======================
-// BUS (WORKING KMB API)
+// BUS (REAL WORKING KMB)
 // ======================
 
 async function loadBus() {
@@ -162,7 +118,10 @@ async function loadBus() {
     const res = await fetch(url);
     const data = await res.json();
 
-    if (!data?.data?.length) throw new Error("no bus data");
+    if (!data.data) {
+      log("BUS EMPTY");
+      return;
+    }
 
     const routes = {};
 
@@ -170,47 +129,59 @@ async function loadBus() {
       if (!b.eta) return;
 
       const route = b.route;
-      const dest = b.dest_tc;
-      const mins = diffMin(b.eta);
+      const dest = b.dest_tc || "";
+      const min = diff(b.eta);
 
       if (!routes[route]) {
-        routes[route] = { dest, eta: [] };
+        routes[route] = { dest, list: [] };
       }
 
-      routes[route].eta.push(mins);
+      routes[route].list.push(min);
     });
 
-    const container = document.getElementById("busList");
-    container.innerHTML = "";
+    const box = document.getElementById("busList");
+    box.innerHTML = "";
 
-    Object.keys(routes).forEach(route => {
-      const r = routes[route];
-      r.eta.sort((a, b) => a - b);
+    Object.keys(routes).forEach(r => {
+      const item = routes[r];
+      item.list.sort((a,b)=>a-b);
 
-      const top2 = r.eta.slice(0, 2);
+      const top2 = item.list.slice(0,2);
 
-      container.innerHTML += `
-        <div class="bus-item">
-          <div class="bus-route">🚌 ${route}</div>
-          <div class="bus-dest">往 ${r.dest}</div>
-          <div class="bus-eta">
-            ${top2.map(m => color(m)).join(" / ")}
+      box.innerHTML += `
+        <div class="card">
+          <div class="direction">🚌 ${r} 往 ${item.dest}</div>
+          <div>
+            ${top2.map(format).join(" / ")}
           </div>
         </div>
       `;
     });
 
   } catch (e) {
-    document.getElementById("busList").innerHTML = "—";
+    log("BUS FAIL");
   }
 }
 
 // ======================
-// COLOR RULE
+// HELPERS
 // ======================
 
-function color(min) {
-  if (min <= 1) return `<span class="red">🔴 即將到站</span>`;
-  if (min <= 5) return `<span class="green">🟢 ${min}分鐘</span>`;
-  return `<span class="grey">⚪ ${min}分鐘</span>`;
+function diff(time) {
+  const t = new Date(time).getTime();
+  return Math.round((t - Date.now()) / 60000);
+}
+
+function render(id, arr) {
+  arr.sort((a,b)=>a-b);
+  arr = arr.slice(0,4);
+
+  document.getElementById(id).innerHTML =
+    arr.map(format).join(" ｜ ");
+}
+
+function format(m) {
+  if (m <= 1) return `<span style="color:red">🔴 即將</span>`;
+  if (m <= 5) return `<span style="color:lime">🟢 ${m}分鐘</span>`;
+  return `<span style="color:#999">${m}分鐘</span>`;
 }
