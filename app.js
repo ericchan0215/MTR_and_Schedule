@@ -1,125 +1,229 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, Arial;
-  background: #0f0f10;
-  color: #ffffff;
+// ======================
+// CONFIG
+// ======================
+
+const MTR_LINE = "TML";
+const MTR_STATION = "TIS"; // 天水圍站
+const REFRESH_INTERVAL = 15000;
+
+const BUS_STOP_ID = "LEARN_FROM_API"; 
+// ⚠️ 重要：你之後要換做真正 stop id
+
+// ======================
+// INIT
+// ======================
+
+init();
+
+async function init() {
+  await loadAll();
+  setInterval(loadAll, REFRESH_INTERVAL);
 }
 
-.container {
-  padding: 16px;
-  max-width: 520px;
-  margin: 0 auto;
+// ======================
+// MAIN LOOP
+// ======================
+
+async function loadAll() {
+  loadTime();
+  loadWeather();
+  loadMTR();
+  loadBus();
 }
 
-/* HEADER */
-.header {
-  padding: 12px;
-  background: #1a1a1c;
-  border-radius: 14px;
-  margin-bottom: 14px;
+// ======================
+// TIME (HK)
+// ======================
+
+function loadTime() {
+  const now = new Date().toLocaleTimeString("zh-HK", {
+    timeZone: "Asia/Hong_Kong",
+    hour12: false
+  });
+
+  document.getElementById("lastUpdate").innerText =
+    "最後更新（香港時間）： " + now;
 }
 
-.title {
-  font-size: 20px;
-  font-weight: bold;
-  margin-bottom: 10px;
+// ======================
+// WEATHER (HKO)
+// ======================
+
+async function loadWeather() {
+  try {
+    const res = await fetch("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc");
+    const data = await res.json();
+
+    const temp = data.temperature.data[0].value;
+    const humidity = data.humidity.data[0].value;
+    const icon = data.icon?.[0];
+
+    document.getElementById("temp").innerText = temp + "°C";
+    document.getElementById("humidity").innerText = "💧" + humidity + "%";
+    document.getElementById("weatherIcon").innerText = mapWeatherIcon(icon);
+
+    if (data.warningMessage && data.warningMessage.length > 0) {
+      document.getElementById("warning").innerText =
+        "⚠️ " + data.warningMessage.join(" / ");
+    } else {
+      document.getElementById("warning").innerText =
+        "✅ 沒有生效天氣警告";
+    }
+
+  } catch (e) {
+    document.getElementById("warning").innerText =
+      "⚠️ 天氣資料未能更新";
+  }
 }
 
-/* WEATHER */
-.weather {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 16px;
-  margin-bottom: 8px;
+function mapWeatherIcon(icon) {
+  if (!icon) return "🌤️";
+
+  if (icon >= 50) return "🌧️";
+  if (icon >= 40) return "☁️";
+  if (icon >= 30) return "🌥️";
+  if (icon >= 20) return "🌤️";
+  if (icon >= 10) return "☀️";
+
+  return "🌤️";
 }
 
-#weatherIcon {
-  font-size: 28px;
+// ======================
+// MTR (FIXED VERSION)
+// ======================
+
+async function loadMTR() {
+  try {
+    const url = `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${MTR_LINE}&sta=${MTR_STATION}&lang=tc`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const dirA = [];
+    const dirB = [];
+
+    const platforms = data.data;
+
+    Object.keys(platforms).forEach(key => {
+      const trains = platforms[key];
+
+      trains.forEach(t => {
+        const mins = calcMins(t.time);
+
+        if (key.includes("N") || key.includes("UP")) {
+          dirA.push(mins);
+        } else {
+          dirB.push(mins);
+        }
+      });
+    });
+
+    renderMTR("mtrToTuenMun", dirA);
+    renderMTR("mtrToWuKaiSha", dirB);
+
+  } catch (e) {
+    document.getElementById("mtrToTuenMun").innerText = "⚠️ 未能載入";
+    document.getElementById("mtrToWuKaiSha").innerText = "⚠️ 未能載入";
+  }
 }
 
-#temp {
-  font-size: 18px;
-  font-weight: bold;
+function calcMins(timeStr) {
+  const t = new Date(timeStr);
+  return Math.round((t - new Date()) / 60000);
 }
 
-#humidity {
-  font-size: 14px;
-  color: #aaa;
+function renderMTR(id, list) {
+  if (!list || list.length === 0) {
+    document.getElementById(id).innerHTML = `<div class="line">—</div>`;
+    return;
+  }
+
+  list.sort((a, b) => a - b);
+  const top4 = list.slice(0, 4);
+
+  const html = top4.map(t => {
+    return `<span class="${getColor(t)}">${format(t)}</span>`;
+  }).join(" ｜ ");
+
+  document.getElementById(id).innerHTML =
+    `<div class="line">${html}</div>`;
 }
 
-#warning {
-  font-size: 14px;
-  margin-top: 6px;
-  color: #ffcc00;
+// ======================
+// BUS (SAFE VERSION)
+// ======================
+
+async function loadBus() {
+  try {
+
+    if (BUS_STOP_ID === "LEARN_FROM_API") {
+      document.getElementById("busList").innerHTML =
+        "⚠️ 請先設定正確 BUS_STOP_ID";
+      return;
+    }
+
+    const url =
+      `https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${BUS_STOP_ID}`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!data.data) throw new Error("no data");
+
+    const routes = {};
+
+    data.data.forEach(b => {
+      const route = b.route;
+      const dest = b.dest_tc || b.dest_en;
+      const mins = calcMins(b.eta);
+
+      if (!routes[route]) {
+        routes[route] = { dest, eta: [] };
+      }
+
+      routes[route].eta.push(mins);
+    });
+
+    const container = document.getElementById("busList");
+    container.innerHTML = "";
+
+    Object.keys(routes).forEach(route => {
+      const r = routes[route];
+
+      r.eta.sort((a, b) => a - b);
+      const top2 = r.eta.slice(0, 2);
+
+      const html = `
+        <div class="bus-item">
+          <div class="bus-route">🚌 ${route}</div>
+          <div class="bus-dest">往 ${r.dest}</div>
+          <div class="bus-eta">
+            ${top2.map(t =>
+              `<span class="${getColor(t)}">${format(t)}</span>`
+            ).join(" / ")}
+          </div>
+        </div>
+      `;
+
+      container.innerHTML += html;
+    });
+
+  } catch (e) {
+    document.getElementById("busList").innerHTML =
+      "⚠️ 巴士資料未能更新";
+  }
 }
 
-#lastUpdate {
-  font-size: 12px;
-  color: #888;
-  margin-top: 8px;
+// ======================
+// COLOR RULE
+// ======================
+
+function getColor(min) {
+  if (min <= 1) return "red";
+  if (min <= 5) return "green";
+  return "grey";
 }
 
-/* SECTION */
-.section-title {
-  margin: 16px 0 8px;
-  font-size: 15px;
-  color: #bbbbbb;
-}
-
-/* CARD */
-.card {
-  background: #1a1a1c;
-  padding: 12px;
-  border-radius: 14px;
-  margin-bottom: 10px;
-}
-
-.direction {
-  font-size: 14px;
-  color: #aaa;
-  margin-bottom: 6px;
-}
-
-/* MTR / BUS TEXT */
-.line {
-  font-size: 16px;
-  line-height: 1.6;
-}
-
-/* ETA COLORS */
-.red {
-  color: #ff4d4f; /* 🔴 */
-  font-weight: bold;
-}
-
-.green {
-  color: #52c41a; /* 🟢 */
-}
-
-.grey {
-  color: #999999; /* ⚪ */
-}
-
-/* BUS LIST */
-.bus-item {
-  background: #1a1a1c;
-  padding: 12px;
-  border-radius: 14px;
-  margin-bottom: 10px;
-}
-
-.bus-route {
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.bus-dest {
-  font-size: 13px;
-  color: #aaa;
-  margin: 4px 0;
-}
-
-.bus-eta {
-  font-size: 15px;
+function format(min) {
+  if (min <= 0) return "即將到站";
+  return min + "分鐘";
 }
