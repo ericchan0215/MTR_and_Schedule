@@ -1,16 +1,84 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>聚星樓交通 Dashboard</title>
-  <link rel="stylesheet" href="style.css">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, Arial;
+      background: #0f0f10;
+      color: white;
+    }
+
+    .container {
+      padding: 14px;
+      max-width: 520px;
+      margin: auto;
+    }
+
+    .header {
+      background: #1a1a1c;
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    .title {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .weather {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    #weatherIcon { font-size: 26px; }
+
+    #temp { font-size: 18px; }
+
+    #humidity {
+      font-size: 12px;
+      color: #aaa;
+    }
+
+    .card {
+      background: #1a1a1c;
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+    }
+
+    .section-title {
+      margin: 12px 0 6px;
+      color: #aaa;
+      font-size: 13px;
+    }
+
+    .direction {
+      font-size: 13px;
+      color: #aaa;
+      margin-bottom: 5px;
+    }
+
+    #debug {
+      font-size: 10px;
+      color: #666;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 
 <body>
 
 <div class="container">
 
+  <!-- HEADER -->
   <div class="header">
     <div class="title">📍 聚星樓交通 Dashboard</div>
 
@@ -22,11 +90,14 @@
       </div>
     </div>
 
-    <div id="warning"></div>
+    <div id="warning" style="font-size:12px;color:#ffcc00;"></div>
 
-    <div id="lastUpdate">最後更新（香港時間）：--</div>
+    <div id="lastUpdate" style="font-size:11px;color:#888;margin-top:6px;">
+      --
+    </div>
   </div>
 
+  <!-- MTR -->
   <div class="section-title">🚇 天水圍站（屯馬綫）</div>
 
   <div class="card">
@@ -39,11 +110,12 @@
     <div id="mtrToWuKaiSha">--</div>
   </div>
 
+  <!-- BUS -->
   <div class="section-title">🚌 聚星樓</div>
   <div id="busList">--</div>
 
-  <!-- DEBUG BOX（手機用） -->
-  <div id="debug" style="font-size:10px;color:#666;margin-top:10px;"></div>
+  <!-- DEBUG -->
+  <div id="debug"></div>
 
 </div>
 
