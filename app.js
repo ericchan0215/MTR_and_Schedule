@@ -203,7 +203,7 @@ async function loadBus() {
     let html = "";
 
     // =========================
-    // LOOP EACH STOP SEPARATELY
+    // EACH STOP SEPARATELY
     // =========================
     for (const stopId of Object.keys(stops)) {
 
@@ -232,23 +232,37 @@ async function loadBus() {
       );
 
       // =========================
-      // GROUP BY ROUTE + DEST
+      // 🔥 FIX: REMOVE DUPLICATES + GROUP
       // =========================
       const routes = {};
+      const seen = new Set();
 
       for (const item of list) {
 
-        const key = item.route + "_" + item.dest_tc;
+        // 🔥 unique record key (prevents duplicate A37 etc.)
+        const uniqueKey =
+          item.route + "_" +
+          item.dest_tc + "_" +
+          item.eta + "_" +
+          item.seq;
 
-        if (!routes[key]) routes[key] = [];
+        if (seen.has(uniqueKey)) continue;
+        seen.add(uniqueKey);
 
-        if (routes[key].length < 2) {
-          routes[key].push(item);
+        const groupKey =
+          item.route + "_" + item.dest_tc;
+
+        if (!routes[groupKey]) {
+          routes[groupKey] = [];
+        }
+
+        if (routes[groupKey].length < 2) {
+          routes[groupKey].push(item);
         }
       }
 
       // =========================
-      // RENDER EACH ROUTE GROUP
+      // RENDER
       // =========================
       for (const group of Object.values(routes)) {
 
@@ -273,7 +287,6 @@ async function loadBus() {
     bus.innerHTML = html;
 
   } catch (e) {
-
     console.log("BUS ERROR:", e);
     bus.innerHTML = "巴士 API 錯誤";
   }
