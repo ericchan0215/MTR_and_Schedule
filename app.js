@@ -73,98 +73,89 @@ async function loadWeather() {
 
 async function loadMTR() {
 
-  const mtr1 =
-    document.getElementById("mtr1");
-
-  const mtr2 =
-    document.getElementById("mtr2");
+  const mtr1 = document.getElementById("mtr1");
+  const mtr2 = document.getElementById("mtr2");
 
   try {
 
     const url =
-      `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${MTR_LINE}&sta=${MTR_STATION}&lang=tc`;
+      "https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TML&sta=TIS&lang=tc";
 
-    const res =
-      await fetch(url);
+    const res = await fetch(url);
+    const json = await res.json();
 
-    const json =
-      await res.json();
+    console.log("MTR RAW:", json);
 
-    if (!json.data) {
-
+    if (json.status !== "1") {
       mtr1.innerHTML = "--";
-
-      mtr2.innerHTML =
-        "MTR API 無資料";
-
-      console.log(json);
-
+      mtr2.innerHTML = "MTR API error";
       return;
-
     }
 
-    const key =
-      Object.keys(json.data)[0];
+    const data = json.data;
 
-    const station =
-      json.data[key];
+    if (!data) {
+      mtr1.innerHTML = "--";
+      mtr2.innerHTML = "no data";
+      return;
+    }
 
-    const up =
-      station.UP || [];
+    // 🔥 IMPORTANT: data is NOT keyed by station code
+    const firstKey = Object.keys(data)[0];
+    const station = data[firstKey];
 
-    const down =
-      station.DOWN || [];
+    if (!station) {
+      mtr1.innerHTML = "--";
+      mtr2.innerHTML = "station parse fail";
+      console.log("keys:", Object.keys(data));
+      return;
+    }
 
-    showMTR(
-      "mtr1",
-      up
-    );
-
-    showMTR(
-      "mtr2",
-      down
-    );
+    showMTR("mtr1", station.UP || []);
+    showMTR("mtr2", station.DOWN || []);
 
   } catch (e) {
 
     console.log(e);
-
     mtr1.innerHTML = "--";
-
     mtr2.innerHTML = "--";
-
   }
-
 }
 
 function showMTR(id, arr) {
 
-  const el =
-    document.getElementById(id);
+  const el = document.getElementById(id);
 
-  if (!arr.length) {
-
+  if (!arr || !arr.length) {
     el.innerHTML = "--";
-
     return;
-
   }
 
   let html = "";
 
-  arr
-    .slice(0, 4)
-    .forEach(train => {
+  arr.slice(0, 4).forEach(train => {
 
-      html +=
-        etaColor(
-          Number(train.ttnt)
-        ) + " ";
+    const t = train.ttnt;
 
-    });
+    if (t === "ARRIVED") {
+      html += "🔴 到站 ";
+    } 
+    else if (t === "END") {
+      html += "⚫ 已尾班 ";
+    }
+    else {
+      const min = parseInt(t, 10);
+
+      if (isNaN(min)) {
+        html += "⚪ 即將 ";
+      } else {
+        html += etaColor(min) + " ";
+      }
+    }
+
+  });
 
   el.innerHTML = html;
-
 }
 
 /* ===========================
