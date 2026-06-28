@@ -86,47 +86,59 @@ async function loadMTR() {
 
     console.log("MTR RAW:", json);
 
-    if (json.status !== "1") {
+    // ✅ status 可能係 number / string
+    if (String(json.status) !== "1") {
       mtr1.innerHTML = "--";
       mtr2.innerHTML = "MTR API error";
+      console.log("MTR status error:", json);
       return;
     }
 
-    const data = json.data;
-
-    if (!data) {
+    if (!json.data) {
       mtr1.innerHTML = "--";
       mtr2.innerHTML = "no data";
       return;
     }
 
-    // 🔥 IMPORTANT: data is NOT keyed by station code
-    const firstKey = Object.keys(data)[0];
-    const station = data[firstKey];
+    // ✅ Next Train API structure：data 係 object，但 key 唔固定
+    const keys = Object.keys(json.data);
 
-    if (!station) {
+    if (!keys.length) {
       mtr1.innerHTML = "--";
-      mtr2.innerHTML = "station parse fail";
-      console.log("keys:", Object.keys(data));
+      mtr2.innerHTML = "empty data";
       return;
     }
 
-    showMTR("mtr1", station.UP || []);
-    showMTR("mtr2", station.DOWN || []);
+    const station = json.data[keys[0]];
+
+    if (!station) {
+      mtr1.innerHTML = "--";
+      mtr2.innerHTML = "station parse error";
+      console.log("available keys:", keys);
+      return;
+    }
+
+    // =========================
+    // UP / DOWN render
+    // =========================
+
+    renderMTR("mtr1", station.UP || []);
+    renderMTR("mtr2", station.DOWN || []);
 
   } catch (e) {
 
-    console.log(e);
-    mtr1.innerHTML = "--";
-    mtr2.innerHTML = "--";
+    console.log("MTR FETCH ERROR:", e);
+
+    document.getElementById("mtr1").innerHTML = "--";
+    document.getElementById("mtr2").innerHTML = "MTR API error";
+
   }
 }
-
-function showMTR(id, arr) {
+function renderMTR(id, arr) {
 
   const el = document.getElementById(id);
 
-  if (!arr || !arr.length) {
+  if (!arr || arr.length === 0) {
     el.innerHTML = "--";
     return;
   }
@@ -137,20 +149,25 @@ function showMTR(id, arr) {
 
     const t = train.ttnt;
 
+    // =========================
+    // handle special cases
+    // =========================
     if (t === "ARRIVED") {
       html += "🔴 到站 ";
-    } 
-    else if (t === "END") {
-      html += "⚫ 已尾班 ";
+      return;
     }
-    else {
-      const min = parseInt(t, 10);
 
-      if (isNaN(min)) {
-        html += "⚪ 即將 ";
-      } else {
-        html += etaColor(min) + " ";
-      }
+    if (t === "END") {
+      html += "⚫ 尾班 ";
+      return;
+    }
+
+    const min = parseInt(t, 10);
+
+    if (isNaN(min)) {
+      html += "⚪ 即將 ";
+    } else {
+      html += etaColor(min) + " ";
     }
 
   });
@@ -164,123 +181,94 @@ function showMTR(id, arr) {
 
 async function loadBus() {
 
-  const bus =
-    document.getElementById("bus");
+  const bus = document.getElementById("bus");
 
   try {
 
-    let all = [];
+    const stopData = {};
 
+    // 🔥 1. 逐個 stop 分開 fetch
     for (const stop of BUS_STOP_IDS) {
 
-      const res =
-        await fetch(
-          `https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stop}`
-        );
-
-      const json =
-        await res.json();
-
-      if (json.data) {
-
-        all.push(...json.data);
-
-      }
-
-    }
-
-    if (!all.length) {
-
-      bus.innerHTML =
-        "沒有巴士資料";
-
-      return;
-
-    }
-
-    all = all.filter(x => x.eta);
-
-    all.sort((a, b) => {
-
-      return (
-        new Date(a.eta) -
-        new Date(b.eta)
+      const res = await fetch(
+        `https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stop}`
       );
 
-    });
+      const json = await res.json();
 
-    const routes = {};
-
-    for (const item of all) {
-
-      const key =
-        item.route +
-        "_" +
-        item.dest_tc;
-
-      if (!routes[key]) {
-
-        routes[key] = [];
-
+      if (json.data) {
+        stopData[stop] = json.data.filter(x => x.eta);
+      } else {
+        stopData[stop] = [];
       }
-
-      if (
-        routes[key].length < 2
-      ) {
-
-        routes[key].push(item);
-
-      }
-
     }
 
     let html = "";
 
-    Object.values(routes)
-      .forEach(list => {
+    // 🔥 2. 每個站分開 render
+    for (const stop of BUS_STOP_IDS) {
 
-        const first = list[0];
+      const list = stopData[stop];
+
+      const title =
+        stop === "378A33FE9A4089DF"
+          ? "📍 聚星樓"
+          : "📍 天祐苑";
+
+      html += `<div class="stop-block">`;
+      html += `<h3>${title}</h3>`;
+
+      if (!list.length) {
+        html += "no bus data";
+        html += `</div>`;
+        continue;
+      }
+
+      // 🔥 3. sort
+      list.sort((a, b) =>
+        new Date(a.eta) - new Date(b.eta)
+      );
+
+      const routes = {};
+
+      for (const item of list) {
+
+        const key = item.route + "_" + item.dest_tc;
+
+        if (!routes[key]) routes[key] = [];
+
+        if (routes[key].length < 2) {
+          routes[key].push(item);
+        }
+      }
+
+      for (const group of Object.values(routes)) {
+
+        const first = group[0];
 
         html += `
+          <div class="bus-item">
+            <div class="bus-route">${first.route}</div>
+            <div class="bus-dest">往 ${first.dest_tc}</div>
+            <div class="bus-eta">
+              ${group
+                .map(x => etaColor(diff(x.eta)))
+                .join("&nbsp;&nbsp;")}
+            </div>
+          </div>
+        `;
+      }
 
-<div class="bus-item">
+      html += `</div>`;
+    }
 
-<div class="bus-route">
-${first.route}
-</div>
-
-<div class="bus-dest">
-往 ${first.dest_tc}
-</div>
-
-<div class="bus-eta">
-${list
-  .map(x =>
-    etaColor(diff(x.eta))
-  )
-  .join("&nbsp;&nbsp;")}
-</div>
-
-</div>
-
-`;
-
-      });
-
-    bus.innerHTML =
-      html;
+    bus.innerHTML = html;
 
   } catch (e) {
-
     console.log(e);
-
-    bus.innerHTML =
-      "巴士 API 錯誤";
-
+    bus.innerHTML = "巴士 API 錯誤";
   }
-
 }
-
 /* ===========================
    HELPERS
 =========================== */
