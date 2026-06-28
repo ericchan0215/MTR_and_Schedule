@@ -203,7 +203,7 @@ async function loadBus() {
     let html = "";
 
     // =========================
-    // EACH STOP SEPARATELY
+    // LOOP EACH STOP
     // =========================
     for (const stopId of Object.keys(stops)) {
 
@@ -225,26 +225,25 @@ async function loadBus() {
       }
 
       // =========================
-      // SORT BY ETA
+      // SORT ETA
       // =========================
       list.sort((a, b) =>
         new Date(a.eta) - new Date(b.eta)
       );
 
       // =========================
-      // 🔥 FIX: REMOVE DUPLICATES + GROUP
+      // 🔥 FIX: TRUE DEDUP + GROUPING
       // =========================
       const routes = {};
       const seen = new Set();
 
       for (const item of list) {
 
-        // 🔥 unique record key (prevents duplicate A37 etc.)
+        // 🔥 REAL UNIQUE KEY (KMB duplicate-safe)
         const uniqueKey =
-          item.route + "_" +
-          item.dest_tc + "_" +
-          item.eta + "_" +
-          item.seq;
+          item.route + "|" +
+          item.dest_tc + "|" +
+          item.eta;
 
         if (seen.has(uniqueKey)) continue;
         seen.add(uniqueKey);
@@ -287,6 +286,7 @@ async function loadBus() {
     bus.innerHTML = html;
 
   } catch (e) {
+
     console.log("BUS ERROR:", e);
     bus.innerHTML = "巴士 API 錯誤";
   }
