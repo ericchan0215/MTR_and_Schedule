@@ -426,15 +426,25 @@ function formatMTRBusETA(text) {
 
   if (!text) return "--";
 
-  if (text.includes("Arriving") || text.includes("即將到站")) {
+  if (
+    text.includes("Arriving") ||
+    text.includes("即將到站")
+  ) {
     return "🔴 即將";
   }
 
-  if (text.includes("Departed") || text.includes("已離開")) {
+  if (
+    text.includes("Departed") ||
+    text.includes("已離開")
+  ) {
     return "⚪ 已開出";
   }
 
-  return "🟢 " + text;
+  if (text.includes("minutes") || text.includes("分鐘")) {
+    return "🟢 " + text;
+  }
+
+  return text;
 }
 
 async function loadMTRBus(route) {
