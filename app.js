@@ -333,36 +333,75 @@ async function loadMTRBusData() {
 
   const el = document.getElementById("mtrbus");
 
-  const k51 = await loadMTRBus("K51");
-  const k53 = await loadMTRBus("K53");
-  const k51a = await loadMTRBus("K51A");
+  try {
 
-  let html = "";
+    const routes = ["K51", "K53", "K51A"];
 
-  function format(name, data) {
+    let html = "";
 
-    if (!data) return "";
+    for (const route of routes) {
 
-    const up = data.UP || [];
-    const down = data.DOWN || [];
+      const url =
+        `https://rt.data.gov.hk/v1/transport/mtr/bus/getSchedule?language=zh&routeName=${route}`;
 
-    const times = [...up, ...down]
-      .slice(0, 2)
-      .map(x => etaColor(diff(x.estimatedArrTime || x.time)));
+      const res = await fetch(url);
+      const json = await res.json();
 
-    return `
-      <div class="bus-item">
-        <div class="bus-route">${name}</div>
-        <div class="bus-eta">${times.join("&nbsp;&nbsp;")}</div>
-      </div>
-    `;
+      const routeData = json.data;
+
+      if (!routeData) continue;
+
+      let buses = [];
+
+      // 🔥 flatten all busStops → buses
+      for (const stop of routeData.busStop || []) {
+        if (stop.bus) {
+          buses.push(...stop.bus);
+        }
+      }
+
+      if (!buses.length) continue;
+
+      // sort by arrival time
+      buses.sort((a, b) =>
+        Number(a.arrivalTimeInSecond) - Number(b.arrivalTimeInSecond)
+      );
+
+      const top = buses.slice(0, 2);
+
+      html += `
+        <div class="bus-item">
+          <div class="bus-route">🚍 ${route}</div>
+          <div class="bus-eta">
+            ${top.map(b =>
+              formatMTRBusETA(b.arrivalTimeText)
+            ).join("&nbsp;&nbsp;")}
+          </div>
+        </div>
+      `;
+    }
+
+    el.innerHTML = html || "no MTR bus data";
+
+  } catch (e) {
+    console.log("MTR BUS ERROR", e);
+    el.innerHTML = "MTR Bus API error";
+  }
+}
+
+function formatMTRBusETA(text) {
+
+  if (!text) return "--";
+
+  if (text.includes("Arriving") || text.includes("即將到站")) {
+    return "🔴 即將";
   }
 
-  html += format("K51", k51);
-  html += format("K53", k53);
-  html += format("K51A", k51a);
+  if (text.includes("Departed") || text.includes("已離開")) {
+    return "⚪ 已開出";
+  }
 
-  el.innerHTML = html;
+  return "🟢 " + text;
 }
 
 async function loadMTRBus(route) {
