@@ -60,28 +60,29 @@ body {
   margin-top: 8px;
 }
 
-/* SECTION */
+/* SECTION TITLE */
 .section-title {
   margin: 16px 0 8px;
-  font-size: 15px;
+  font-size: 14px;
   color: #bbbbbb;
 }
 
-/* CARD */
+/* CARD (统一 UI) */
 .card {
   background: #1a1a1c;
   padding: 12px;
   border-radius: 14px;
   margin-bottom: 10px;
+  border: 1px solid rgba(255,255,255,0.04);
 }
 
+/* MTR */
 .direction {
   font-size: 14px;
   color: #aaa;
   margin-bottom: 6px;
 }
 
-/* MTR / BUS TEXT */
 .line {
   font-size: 16px;
   line-height: 1.6;
@@ -89,37 +90,51 @@ body {
 
 /* ETA COLORS */
 .red {
-  color: #ff4d4f; /* 🔴 */
+  color: #ff4d4f;
   font-weight: bold;
 }
 
 .green {
-  color: #52c41a; /* 🟢 */
+  color: #52c41a;
 }
 
 .grey {
-  color: #999999; /* ⚪ */
+  color: #999999;
 }
 
-/* BUS LIST */
-.bus-item {
-  background: #1a1a1c;
-  padding: 12px;
-  border-radius: 14px;
-  margin-bottom: 10px;
+/* ===========================
+   SCHEDULE (NEW ADDITION)
+=========================== */
+
+.schedule-item {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-.bus-route {
-  font-size: 18px;
-  font-weight: bold;
+.schedule-item:last-child {
+  border-bottom: none;
 }
 
-.bus-dest {
+.schedule-time {
+  font-size: 12px;
+  color: #888;
+}
+
+.schedule-person {
   font-size: 13px;
   color: #aaa;
-  margin: 4px 0;
+  margin-top: 2px;
 }
 
-.bus-eta {
+.schedule-title {
   font-size: 15px;
+  margin-top: 2px;
+  color: #fff;
+}
+
+/* EMPTY STATE */
+.empty {
+  font-size: 13px;
+  color: #666;
+  padding: 10px 0;
 }
