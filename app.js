@@ -183,9 +183,18 @@ async function loadSchedule() {
 
 function getTodayEvents(data) {
 
-  const today = formatDate(new Date());
+  const today = new Date();
+  today.setHours(0,0,0,0);
 
-  return data.filter(e => e.date === today);
+  return data.filter(e => {
+
+    if (!e.date) return false;
+
+    const d = new Date(e.date.replaceAll("/", "-"));
+    d.setHours(0,0,0,0);
+
+    return d.getTime() === today.getTime();
+  });
 }
 
 function getWeekEvents(data) {
@@ -237,7 +246,6 @@ function parseDate(str) {
 
   if (!str) return "";
 
-  // 🔥 force string safe format
   const clean = str.toString().replaceAll("/", "-");
 
   const d = new Date(clean);
@@ -256,5 +264,6 @@ function formatDate(d) {
   return `${year}/${month}/${day}`;
 }
 
-console.log("TODAY:", formatDate(new Date()));
-console.log("SHEET DATA:", await getScheduleData());
+getScheduleData().then(data => {
+  console.log("RAW DATA:", data);
+});
