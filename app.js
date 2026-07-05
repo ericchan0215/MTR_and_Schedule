@@ -155,7 +155,7 @@ async function getScheduleData() {
     JSON.parse(text.substring(47).slice(0, -2));
 
   return json.table.rows.map(row => ({
-    date: parseDate(row.c[1]?.v),
+    date: normalizeDate(row.c[1]?.v),   // 🔥 FIX HERE
     time: row.c[2]?.v || "",
     person: row.c[3]?.v || "",
     activity: row.c[4]?.v || ""
@@ -191,11 +191,18 @@ function getTodayEvents(data) {
 function getWeekEvents(data) {
 
   const today = new Date();
+  today.setHours(0,0,0,0);
+
   const end = new Date();
   end.setDate(today.getDate() + 7);
+  end.setHours(23,59,59,999);
 
   return data.filter(e => {
-    const d = new Date(e.date);
+
+    if (!e.date) return false;
+
+    const d = new Date(e.date.replaceAll("/", "-"));
+
     return d > today && d <= end;
   });
 }
@@ -230,9 +237,12 @@ function parseDate(str) {
 
   if (!str) return "";
 
-  const d = new Date(str);
+  // 🔥 force string safe format
+  const clean = str.toString().replaceAll("/", "-");
 
-  if (isNaN(d.getTime())) return str;
+  const d = new Date(clean);
+
+  if (isNaN(d.getTime())) return "";
 
   return formatDate(d);
 }
@@ -245,3 +255,6 @@ function formatDate(d) {
 
   return `${year}/${month}/${day}`;
 }
+
+console.log("TODAY:", formatDate(new Date()));
+console.log("SHEET DATA:", await getScheduleData());
