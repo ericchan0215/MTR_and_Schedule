@@ -224,8 +224,8 @@ function getTodayEvents(data) {
 
     if (!e.date) return false;
 
-    const d = new Date(e.date);
-    if (isNaN(d)) return false;
+    const d = new Date(e.date.replaceAll("/", "-"));
+    if (isNaN(d.getTime())) return false;
 
     d.setHours(0,0,0,0);
 
@@ -246,10 +246,10 @@ function getWeekEvents(data) {
 
     if (!e.date) return false;
 
-    const d = new Date(e.date);
-    if (isNaN(d)) return false;
+    const d = new Date(e.date.replaceAll("/", "-"));
+    if (isNaN(d.getTime())) return false;
 
-    return d > today && d <= end;
+    return d >= today && d <= end;
   });
 }
 
