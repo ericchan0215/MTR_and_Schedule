@@ -2,6 +2,10 @@ const REFRESH = 15000;
 
 init();
 
+/* ===========================
+   INIT
+=========================== */
+
 function init() {
   run();
   setInterval(run, REFRESH);
@@ -128,7 +132,6 @@ function renderMTR(id, arr) {
     } else {
       html += `🟢 ${min} 分鐘 `;
     }
-
   });
 
   el.innerHTML = html;
@@ -140,26 +143,45 @@ function renderMTR(id, arr) {
 
 async function getScheduleData() {
 
-  const spreadsheetId =
-    "1so1X1thdIXAqm2zBfPfxFQ6HjGo5a_RoMFeC_w6_hTY";
+  try {
 
-  const worksheetId = "1341569463";
+    const spreadsheetId =
+      "1so1X1thdIXAqm2zBfPfxFQ6HjGo5a_RoMFeC_w6_hTY";
 
-  const url =
-    `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&gid=${worksheetId}`;
+    const worksheetId = "1341569463";
 
-  const response = await fetch(url);
-  const text = await response.text();
+    const url =
+      `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&gid=${worksheetId}`;
 
-  const json =
-    JSON.parse(text.substring(47).slice(0, -2));
+    const response = await fetch(url);
+    const text = await response.text();
 
-  return json.table.rows.map(row => ({
-    date: normalizeDate(row.c[1]?.v),   // 🔥 FIX HERE
-    time: row.c[2]?.v || "",
-    person: row.c[3]?.v || "",
-    activity: row.c[4]?.v || ""
-  }));
+    // ⚠️ gviz wrapper remove
+    const json = JSON.parse(text.substring(47).slice(0, -2));
+
+    console.log("SHEET RAW:", json);
+
+    if (!json?.table?.rows) {
+      throw new Error("Invalid sheet structure");
+    }
+
+    return json.table.rows.map(row => {
+
+      const rawDate = row.c?.[1]?.v;
+      const date = parseDate(rawDate);
+
+      return {
+        date,
+        time: row.c?.[2]?.v || "",
+        person: row.c?.[3]?.v || "",
+        activity: row.c?.[4]?.v || ""
+      };
+    });
+
+  } catch (e) {
+    console.log("SHEET ERROR:", e);
+    return [];
+  }
 }
 
 /* ===========================
@@ -168,13 +190,25 @@ async function getScheduleData() {
 
 async function loadSchedule() {
 
-  const data = await getScheduleData();
+  try {
 
-  const todayEvents = getTodayEvents(data);
-  const weekEvents = getWeekEvents(data);
+    const data = await getScheduleData();
 
-  renderSchedule(todayEvents, "todayEvents");
-  renderSchedule(weekEvents, "weekEvents");
+    const todayEvents = getTodayEvents(data);
+    const weekEvents = getWeekEvents(data);
+
+    renderSchedule(todayEvents, "todayEvents");
+    renderSchedule(weekEvents, "weekEvents");
+
+  } catch (e) {
+    console.log("SCHEDULE ERROR:", e);
+
+    document.getElementById("todayEvents").innerHTML =
+      "❌ Schedule load error";
+
+    document.getElementById("weekEvents").innerHTML =
+      "❌ Schedule load error";
+  }
 }
 
 /* ===========================
@@ -190,7 +224,9 @@ function getTodayEvents(data) {
 
     if (!e.date) return false;
 
-    const d = new Date(e.date.replaceAll("/", "-"));
+    const d = new Date(e.date);
+    if (isNaN(d)) return false;
+
     d.setHours(0,0,0,0);
 
     return d.getTime() === today.getTime();
@@ -210,7 +246,8 @@ function getWeekEvents(data) {
 
     if (!e.date) return false;
 
-    const d = new Date(e.date.replaceAll("/", "-"));
+    const d = new Date(e.date);
+    if (isNaN(d)) return false;
 
     return d > today && d <= end;
   });
@@ -224,7 +261,7 @@ function renderSchedule(events, id) {
 
   const el = document.getElementById(id);
 
-  if (!events.length) {
+  if (!events || events.length === 0) {
     el.innerHTML = "暫無行程";
     return;
   }
@@ -246,16 +283,10 @@ function parseDate(str) {
 
   if (!str) return "";
 
-  const clean = str.toString().replaceAll("/", "-");
-
-  const d = new Date(clean);
+  // Google Sheet sometimes returns Date object
+  const d = new Date(str);
 
   if (isNaN(d.getTime())) return "";
-
-  return formatDate(d);
-}
-
-function formatDate(d) {
 
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -264,6 +295,10 @@ function formatDate(d) {
   return `${year}/${month}/${day}`;
 }
 
+/* ===========================
+   DEBUG
+=========================== */
+
 getScheduleData().then(data => {
-  console.log("RAW DATA:", data);
+  console.log("FINAL DATA:", data);
 });
