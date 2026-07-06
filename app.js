@@ -303,6 +303,3 @@ function renderSchedule(events, id) {
     </div>
   `).join("");
 }
-
-console.log("TODAY KEY:", getTodayKey());
-console.log("SHEET DATES:", data.map(d => d.date));
