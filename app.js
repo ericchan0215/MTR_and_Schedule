@@ -169,11 +169,8 @@ async function getScheduleData() {
 
       const rawDate = row.c?.[1]?.v;
 
-      // 👉 normalize date to YYYY/MM/DD string
-      const date = normalizeDate(rawDate);
-
       return {
-        date,
+        date: normalizeDate(rawDate),
         time: row.c?.[2]?.v || "",
         person: row.c?.[3]?.v || "",
         activity: row.c?.[4]?.v || ""
@@ -187,7 +184,33 @@ async function getScheduleData() {
 }
 
 /* ===========================
-   SCHEDULE
+   NORMALIZE DATE (CORE FIX)
+=========================== */
+
+function normalizeDate(str) {
+
+  if (!str) return "";
+
+  const d = new Date(str);
+
+  if (isNaN(d.getTime())) {
+
+    // fallback: string clean
+    return String(str)
+      .split(" ")[0]
+      .replaceAll("-", "/")
+      .trim();
+  }
+
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+
+  return `${yyyy}/${mm}/${dd}`;
+}
+
+/* ===========================
+   SCHEDULE LOADER
 =========================== */
 
 async function loadSchedule() {
@@ -204,51 +227,28 @@ async function loadSchedule() {
 }
 
 /* ===========================
-   DATE NORMALIZER (FIX CORE)
-=========================== */
-
-function normalizeDate(str) {
-
-  if (!str) return "";
-
-  const d = new Date(str);
-
-  if (isNaN(d.getTime())) {
-    // fallback: try raw string
-    return String(str).split(" ")[0].replaceAll("-", "/").trim();
-  }
-
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-
-  return `${yyyy}/${mm}/${dd}`;
-}
-
-/* ===========================
-   FILTERS (FIXED - STRING BASED)
+   FILTERS (STABLE VERSION)
 =========================== */
 
 function getTodayEvents(data) {
 
-  const today = new Date();
+  const now = new Date();
 
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
+  const todayKey =
+    `${now.getFullYear()}/` +
+    `${String(now.getMonth() + 1).padStart(2, "0")}/` +
+    `${String(now.getDate()).padStart(2, "0")}`;
 
-  const todayStr = `${yyyy}/${mm}/${dd}`;
-
-  return data.filter(e => e.date === todayStr);
+  return data.filter(e => e.date === todayKey);
 }
 
 function getWeekEvents(data) {
 
-  const today = new Date();
-  today.setHours(0,0,0,0);
+  const now = new Date();
+  now.setHours(0,0,0,0);
 
   const end = new Date();
-  end.setDate(today.getDate() + 7);
+  end.setDate(now.getDate() + 7);
   end.setHours(23,59,59,999);
 
   return data.filter(e => {
@@ -256,7 +256,7 @@ function getWeekEvents(data) {
     const d = new Date(e.date.replaceAll("/", "-"));
     if (isNaN(d.getTime())) return false;
 
-    return d >= today && d <= end;
+    return d >= now && d <= end;
   });
 }
 
