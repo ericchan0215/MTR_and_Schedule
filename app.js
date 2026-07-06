@@ -18,6 +18,7 @@ async function run() {
   await loadSchedule();
 }
 
+
 /* ===========================
    TIME
 =========================== */
@@ -30,12 +31,15 @@ function updateTime() {
     });
 }
 
+
 /* ===========================
    WEATHER
 =========================== */
 
 async function loadWeather() {
+
   try {
+
     const res = await fetch(
       "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc"
     );
@@ -53,6 +57,7 @@ async function loadWeather() {
   }
 }
 
+
 /* ===========================
    MTR
 =========================== */
@@ -67,7 +72,9 @@ async function loadMTR() {
     const url =
       "https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TML&sta=TIS&lang=tc";
 
+
     const res = await fetch(url);
+
 
     if (!res.ok) {
       mtr1.innerHTML = "--";
@@ -75,7 +82,9 @@ async function loadMTR() {
       return;
     }
 
+
     const json = await res.json();
+
 
     if (!json || json.status !== 1) {
       mtr1.innerHTML = "--";
@@ -83,223 +92,432 @@ async function loadMTR() {
       return;
     }
 
+
     const firstKey = Object.keys(json.data)[0];
     const station = json.data[firstKey];
+
 
     renderMTR("mtr1", station.UP || []);
     renderMTR("mtr2", station.DOWN || []);
 
+
   } catch (e) {
+
     console.log("MTR ERROR:", e);
+
     mtr1.innerHTML = "--";
     mtr2.innerHTML = "fetch failed";
+
   }
 }
+
+
 
 function renderMTR(id, arr) {
 
   const el = document.getElementById(id);
+
 
   if (!arr || arr.length === 0) {
     el.innerHTML = "--";
     return;
   }
 
+
   let html = "";
 
-  arr.slice(0, 4).forEach(train => {
+
+  arr.slice(0,4).forEach(train=>{
 
     const t = train.ttnt;
 
-    if (t === "ARRIVED") {
+
+    if(t==="ARRIVED"){
       html += "🔴 到站 ";
       return;
     }
 
-    if (t === "END") {
+
+    if(t==="END"){
       html += "⚫ 尾班 ";
       return;
     }
 
-    const min = parseInt(t, 10);
+
+    const min=parseInt(t,10);
+
 
     html += isNaN(min)
       ? "⚪ 即將 "
       : `🟢 ${min} 分鐘 `;
+
   });
 
+
   el.innerHTML = html;
+
 }
+
+
 
 /* ===========================
-   GOOGLE SHEET (GViz FIXED)
+   GOOGLE SHEET
 =========================== */
 
-async function getScheduleData() {
 
-  try {
+async function getScheduleData(){
 
-    const spreadsheetId =
-      "1so1X1thdIXAqm2zBfPfxFQ6HjGo5a_RoMFeC_w6_hTY";
+try{
 
-    const worksheetId = "1341569463";
 
-    const url =
-      `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&gid=${worksheetId}`;
+const spreadsheetId =
+"1so1X1thdIXAqm2zBfPfxFQ6HjGo5a_RoMFeC_w6_hTY";
 
-    const response = await fetch(url);
-    const text = await response.text();
 
-    const jsonText = text
-      .replace("/*O_o*/", "")
-      .replace("google.visualization.Query.setResponse(", "")
-      .slice(0, -2);
+const worksheetId =
+"1341569463";
 
-    const json = JSON.parse(jsonText);
 
-    if (!json?.table?.rows) return [];
+const url =
+`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&gid=${worksheetId}`;
 
-    return json.table.rows.map(row => {
 
-      const rawDate = row.c?.[1]?.v;
+const response = await fetch(url);
 
-      return {
-        date: normalizeGVizDate(rawDate),
-        rawDate,
-        time: normalizeGVizTime(row.c?.[2]),
-        person: row.c?.[3]?.v || "",
-        activity: row.c?.[4]?.v || ""
-      };
-    });
+const text = await response.text();
 
-  } catch (e) {
-    console.log("SHEET ERROR:", e);
-    return [];
-  }
+
+const jsonText=text
+.replace("/*O_o*/","")
+.replace("google.visualization.Query.setResponse(","")
+.slice(0,-2);
+
+
+
+const json=JSON.parse(jsonText);
+
+
+
+if(!json?.table?.rows)
+return [];
+
+
+
+return json.table.rows.map(row=>{
+
+
+const rawDate=row.c?.[1]?.v;
+
+
+
+return {
+
+date:normalizeGVizDate(rawDate),
+
+rawDate,
+
+time:normalizeGVizTime(row.c?.[2]),
+
+person:row.c?.[3]?.v || "",
+
+activity:row.c?.[4]?.v || ""
+
+};
+
+
+});
+
+
+
+}catch(e){
+
+console.log("SHEET ERROR:",e);
+
+return [];
+
 }
+
+}
+
+
 
 /* ===========================
-   GViz DATE PARSER (CORE FIX)
+   DATE PARSER
 =========================== */
 
-function parseGVizDate(value) {
 
-  if (!value) return null;
+function parseGVizDate(value){
 
-  const str = value.toString();
 
-  // Case 1: Date(2026,6,6)
-  const m = str.match(/Date\((\d+),(\d+),(\d+)/);
+if(!value)
+return null;
 
-  if (m) {
-    const y = Number(m[1]);
-    const mo = Number(m[2]);
-    const d = Number(m[3]);
-    return new Date(y, mo, d);
-  }
 
-  // fallback
-  const fallback = new Date(str);
-  return isNaN(fallback) ? null : fallback;
+
+const str=value.toString();
+
+
+
+const m=str.match(/Date\((\d+),(\d+),(\d+)/);
+
+
+
+if(m){
+
+return new Date(
+Number(m[1]),
+Number(m[2]),
+Number(m[3])
+);
+
 }
 
-/* ===========================
-   NORMALIZE DATE (SAFE OUTPUT)
-=========================== */
 
-function normalizeGVizDate(value) {
 
-  const d = parseGVizDate(value);
+const fallback=new Date(str);
 
-  if (!d) return "";
 
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
+return isNaN(fallback)
+? null
+: fallback;
 
-  return `${yyyy}/${mm}/${dd}`;
+
 }
 
-/* ===========================
-   NORMALIZE TIME (optional)
-=========================== */
 
-function normalizeGVizTime(cell) {
 
-  if (!cell) return "";
 
-  return cell.f || cell.v || "";
+function normalizeGVizDate(value){
+
+
+const d=parseGVizDate(value);
+
+
+
+if(!d)
+return "";
+
+
+
+return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
+
 }
+
+
+
+function normalizeGVizTime(cell){
+
+
+if(!cell)
+return "";
+
+
+return cell.f || cell.v || "";
+
+}
+
+
+
 
 /* ===========================
    SCHEDULE
 =========================== */
 
-async function loadSchedule() {
 
-  const data = await getScheduleData();
+async function loadSchedule(){
 
-  console.log("🔥 SCHEDULE DATA:", data);
 
-  const todayEvents = getTodayEvents(data);
-  const weekEvents = getWeekEvents(data);
+const data=await getScheduleData();
 
-  renderSchedule(todayEvents, "todayEvents");
-  renderSchedule(weekEvents, "weekEvents");
+
+console.log("🔥 SCHEDULE DATA:",data);
+
+
+
+const todayEvents=getTodayEvents(data);
+
+const weekEvents=getWeekEvents(data);
+
+
+
+renderSchedule(todayEvents,"todayEvents");
+
+renderSchedule(weekEvents,"weekEvents");
+
+
 }
+
+
 
 /* ===========================
-   FILTER (FULL SAFE)
+   TODAY FILTER
 =========================== */
 
-function getTodayEvents(data) {
 
-  const now = new Date();
+function getTodayEvents(data){
 
-  const todayKey =
-    `${now.getFullYear()}/` +
-    `${String(now.getMonth() + 1).padStart(2, "0")}/` +
-    `${String(now.getDate()).padStart(2, "0")}`;
 
-  return data.filter(e => e.date === todayKey);
+const now=new Date();
+
+
+
+const todayKey =
+`${now.getFullYear()}/`+
+`${String(now.getMonth()+1).padStart(2,"0")}/`+
+`${String(now.getDate()).padStart(2,"0")}`;
+
+
+
+return data
+.filter(e=>e.date===todayKey)
+.sort(sortEvent);
+
+
 }
 
-function getWeekEvents(data) {
 
-  const now = new Date();
-  now.setHours(0,0,0,0);
 
-  const end = new Date();
-  end.setDate(now.getDate() + 7);
-  end.setHours(23,59,59,999);
 
-  return data.filter(e => {
+/* ===========================
+   NEXT 7 DAYS FILTER
+   EXCLUDE TODAY
+=========================== */
 
-    const d = parseGVizDate(e.rawDate);
-    if (!d) return false;
 
-    return d >= now && d <= end;
-  });
+function getWeekEvents(data){
+
+
+const now=new Date();
+
+now.setHours(0,0,0,0);
+
+
+
+const start=new Date(now);
+
+start.setDate(start.getDate()+1);
+
+
+
+const end=new Date(now);
+
+end.setDate(end.getDate()+7);
+
+end.setHours(23,59,59,999);
+
+
+
+return data
+.filter(e=>{
+
+
+const d=parseGVizDate(e.rawDate);
+
+
+if(!d)
+return false;
+
+
+
+d.setHours(0,0,0,0);
+
+
+
+return d>=start && d<=end;
+
+
+})
+.sort(sortEvent);
+
+
 }
+
+
+
+/* ===========================
+   SORT
+=========================== */
+
+
+function sortEvent(a,b){
+
+
+return new Date(
+`${a.date} ${a.time}`
+)
+-
+new Date(
+`${b.date} ${b.time}`
+);
+
+
+}
+
+
 
 /* ===========================
    RENDER
 =========================== */
 
-function renderSchedule(events, id) {
 
-  const el = document.getElementById(id);
+function renderSchedule(events,id){
 
-  if (!events || events.length === 0) {
-    el.innerHTML = "暫無行程";
-    return;
-  }
 
-  el.innerHTML = events.map(e => `
-    <div class="schedule-item">
-      <div class="schedule-time">🕒 ${e.time}</div>
-      <div class="schedule-person">👤 ${e.person}</div>
-      <div class="schedule-title">📌 ${e.activity}</div>
-    </div>
-  `).join("");
+const el=document.getElementById(id);
+
+
+
+if(!events || events.length===0){
+
+el.innerHTML="暫無行程";
+
+return;
+
+}
+
+
+
+el.innerHTML=events.map(e=>{
+
+
+const d=parseGVizDate(e.rawDate);
+
+
+
+const dateText=d
+? `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`
+: e.date;
+
+
+
+return `
+
+<div class="schedule-item">
+
+<div class="schedule-date">
+📅 ${dateText}
+</div>
+
+
+<div class="schedule-time">
+🕒 ${e.time}
+</div>
+
+
+<div class="schedule-person">
+👤 ${e.person}
+</div>
+
+
+<div class="schedule-title">
+📌 ${e.activity}
+</div>
+
+
+</div>
+
+`;
+
+}).join("");
+
 }
