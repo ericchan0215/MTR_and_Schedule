@@ -529,5 +529,3 @@ function getHKNow() {
 
   return new Date(hk);
 }
-console.log(json)
-console.log(station)
