@@ -432,24 +432,48 @@ return d>=start && d<=end;
 
 }
 
+function timeToMinutes(time) {
 
+  if (!time) return 0;
+
+  const match = time.match(/(\d+):(\d+)/);
+
+  if (!match) return 0;
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+
+  if (time.includes("下午") && hour !== 12) {
+    hour += 12;
+  }
+
+  if (time.includes("上午") && hour === 12) {
+    hour = 0;
+  }
+
+  return hour * 60 + minute;
+
+}
 
 /* ===========================
    SORT
 =========================== */
+function sortEvent(a, b) {
 
+  const dateA = parseGVizDate(a.rawDate);
+  const dateB = parseGVizDate(b.rawDate);
 
-function sortEvent(a,b){
+  if (!dateA || !dateB) return 0;
 
+  // 先按日期
+  const dateDiff = dateA - dateB;
 
-return new Date(
-`${a.date} ${a.time}`
-)
--
-new Date(
-`${b.date} ${b.time}`
-);
+  if (dateDiff !== 0) {
+    return dateDiff;
+  }
 
+  // 同一天再按時間
+  return timeToMinutes(a.time) - timeToMinutes(b.time);
 
 }
 
