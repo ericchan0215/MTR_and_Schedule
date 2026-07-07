@@ -357,7 +357,7 @@ renderSchedule(weekEvents,"weekEvents");
 function getTodayEvents(data){
 
 
-const now=new Date();
+const now = getHKNow();
 
 
 
@@ -387,7 +387,7 @@ return data
 function getWeekEvents(data){
 
 
-const now=new Date();
+const now = getHKNow();
 
 now.setHours(0,0,0,0);
 
@@ -520,4 +520,12 @@ return `
 
 }).join("");
 
+}
+
+function getHKNow() {
+  const hk = new Date().toLocaleString("en-US", {
+    timeZone: "Asia/Hong_Kong"
+  });
+
+  return new Date(hk);
 }
